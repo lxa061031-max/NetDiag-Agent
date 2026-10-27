@@ -3,7 +3,8 @@
 import numpy as np
 import pandas as pd
 
-from src.detection import DEFAULT_THRESHOLD_RULES, detect_anomalies
+from src.detection import detect_anomalies
+from src.detection.config import detection_config
 from src.tools import calculate_numeric_statistics
 
 # 只复用现有阈值，语义和单位必须同时明确。
@@ -13,7 +14,7 @@ THRESHOLD_KEYS = {
 }
 
 
-def prepare_analysis(dataframe, adapter, metrics, mode="auto"):
+def prepare_analysis(dataframe, adapter, metrics, mode="auto", *, settings=None):
     if mode not in {"auto", "generic", "semantic"}:
         raise ValueError("analysis_mode 必须是 auto、generic 或 semantic。")
     if not isinstance(metrics, list) or not metrics or any(not isinstance(m, str) for m in metrics):
@@ -27,13 +28,14 @@ def prepare_analysis(dataframe, adapter, metrics, mode="auto"):
     if mode == "semantic" and any(not mappings[m]["semantic_enabled"] for m in metrics):
         raise ValueError("未确认语义的字段只能进入 Generic Analysis。")
     clean = dataframe[metrics].copy().replace([np.inf, -np.inf], np.nan)
+    active = detection_config(settings)
     thresholds = {}
     for metric in metrics:
         item = mappings[metric]
         key = THRESHOLD_KEYS.get((item["canonical_name"], item["unit"]))
         # LCORE原有策略保持不变：只做原量纲IQR。
         enabled = mode != "generic" and item["semantic_enabled"] and adapter["source_type"] != "lcore_r1"
-        thresholds[metric] = dict(DEFAULT_THRESHOLD_RULES[key]) if enabled and key else {}
+        thresholds[metric] = {"max": active["thresholds"][key]} if enabled and key else {}
     return clean, thresholds
 
 
@@ -42,8 +44,9 @@ def analyze_statistics(dataframe, adapter, metrics, mode="auto"):
     return calculate_numeric_statistics(clean)
 
 
-def analyze_anomalies(dataframe, adapter, metrics, *, mode="auto", use_iqr=True):
-    clean, thresholds = prepare_analysis(dataframe, adapter, metrics, mode)
+def analyze_anomalies(dataframe, adapter, metrics, *, mode="auto", use_iqr=True, settings=None):
+    active = detection_config(settings)
+    clean, thresholds = prepare_analysis(dataframe, adapter, metrics, mode, settings=active)
     if not isinstance(use_iqr, bool):
         raise ValueError("use_iqr 必须是布尔值。")
     if not use_iqr and any(not rule for rule in thresholds.values()):
@@ -51,10 +54,12 @@ def analyze_anomalies(dataframe, adapter, metrics, *, mode="auto", use_iqr=True)
     timestamp = adapter["timestamp_column"]
     if timestamp:
         clean["timestamp"] = dataframe[timestamp].replace([np.inf, -np.inf], np.nan)
-    result = detect_anomalies(clean, thresholds=thresholds, use_iqr=use_iqr)
+    result = detect_anomalies(clean, thresholds=thresholds, use_iqr=use_iqr, iqr_multiplier=active["iqr_multiplier"])
     result.update({
         "analysis_mode": mode,
         "fixed_threshold_fields": [name for name, rule in thresholds.items() if rule],
+        "detection_config": {"fixed_thresholds": thresholds, "use_iqr": use_iqr,
+                             "iqr_multiplier": active["iqr_multiplier"] if use_iqr else None},
         "skipped_zero_iqr_metrics": [m for m in metrics if clean[m].quantile(.75) == clean[m].quantile(.25)] if use_iqr else [],
         "nonfinite_values_ignored": {m: int(np.isinf(dataframe[m].to_numpy(dtype=float, na_value=np.nan)).sum()) for m in metrics},
         "interpretation": "统计异常不等于已确认故障；未知语义/单位不使用固定专业阈值。IQR为0或有效样本不足4时不进行IQR检测，不代表健康。",
