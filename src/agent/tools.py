@@ -11,6 +11,7 @@ import pandas as pd
 from src.data_processing import build_data_summary
 from src.data_processing.adapters import describe_dataset
 from src.data_processing.analysis import analyze_statistics, analyze_anomalies
+from src.detection.config import detection_config
 from src.knowledge import (
     MAX_KNOWLEDGE_QUERY_CHARS,
     search_fault_knowledge as run_knowledge_search,
@@ -138,11 +139,12 @@ def _validate_exact_arguments(
 class DatasetToolbox:
     """封装当前 DataFrame，禁止工具接收路径或执行外部操作。"""
 
-    def __init__(self, dataframe: pd.DataFrame, *, confirmations=None) -> None:
+    def __init__(self, dataframe: pd.DataFrame, *, confirmations=None, settings=None) -> None:
         if not isinstance(dataframe, pd.DataFrame):
             raise TypeError("dataframe 必须是 pandas.DataFrame。")
         self._dataframe = dataframe
         self.adapter = describe_dataset(dataframe, confirmations=confirmations)
+        self.settings = detection_config(settings)
 
     def get_dataset_summary(self) -> dict[str, object]:
         summary = build_data_summary(self._dataframe)
@@ -196,7 +198,7 @@ class DatasetToolbox:
 
         if lcore and not use_iqr:
             raise ToolValidationError("LCORE-R1只支持现有IQR统计检测，请设置use_iqr=true。")
-        detection = analyze_anomalies(self._dataframe, self.adapter, validated_metrics, mode=analysis_mode, use_iqr=use_iqr)
+        detection = analyze_anomalies(self._dataframe, self.adapter, validated_metrics, mode=analysis_mode, use_iqr=use_iqr, settings=self.settings)
         anomalies = list(detection["anomalies"])
         result = {
             "anomaly_count": int(detection["anomaly_count"]),
@@ -207,12 +209,13 @@ class DatasetToolbox:
             "anomalies": anomalies[:max_results],
             "analysis_mode": analysis_mode,
             "fixed_threshold_fields": detection["fixed_threshold_fields"],
+            "detection_config": detection["detection_config"],
             "interpretation": detection["interpretation"],
             "nonfinite_values_ignored": detection["nonfinite_values_ignored"],
             "skipped_zero_iqr_metrics": detection["skipped_zero_iqr_metrics"],
         }
         if lcore:
-            result.update({"method": "IQR only; multiplier=1.5", "interpretation": "统计异常不等于已确认故障；原值保留，单位/-1编码和H/F语义未确认。IQR为0时现有算法跳过该字段，不表示健康。"})
+            result.update({"method": f"IQR only; multiplier={self.settings['iqr_multiplier']:g}", "interpretation": "统计异常不等于已确认故障；原值保留，单位/-1编码和H/F语义未确认。IQR为0时现有算法跳过该字段，不表示健康。"})
         return result
 
     def search_fault_knowledge(self, query: object) -> dict[str, object]:
