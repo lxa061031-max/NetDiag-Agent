@@ -1,0 +1,8 @@
+﻿{
+  "scanned_text_files": 88,
+  "potential_secrets": [],
+  "business_windows_paths": [],
+  "secret_files_read": false,
+  "git_history": "本地未建立Git历史，远程历史需人工核实",
+  "limitations": "规则扫描不能证明不存在所有形式的秘密；提交前仍需审阅变更。"
+}
