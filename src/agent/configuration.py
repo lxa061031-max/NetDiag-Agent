@@ -4,6 +4,13 @@ import os
 
 
 CONFIG_NAMES = ("LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL")
+SUPPORTED_MODELS = {"DeepSeek Flash": "deepseek-flash", "DeepSeek V4 Pro": "deepseek-v4-pro"}
+
+
+def validate_model_override(model):
+    if model not in SUPPORTED_MODELS.values():
+        raise ValueError("不支持的模型，请选择 DeepSeek Flash 或 DeepSeek V4 Pro。")
+    return model
 
 
 def read_llm_settings() -> dict[str, str]:
