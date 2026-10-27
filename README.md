@@ -1,6 +1,6 @@
 # NetDiag-Agent
 
-面向校园网络运维的自适应智能故障诊断系统。当前核心功能已冻结，正在进行第六阶段部署验收；尚未宣布在线验收通过或发布 Competition Demo v1.0。
+面向校园网络运维的自适应智能故障诊断系统。Competition Demo v1.0 已在线验收；v1.0.1 是本地配置化优化，尚未更新线上部署。
 
 > Agent 仅处理当前页面已加载的数据，可调用三个只读分析工具和一个本地知识检索工具。包含结构化证据链与不确定性说明，不使用多智能体、向量数据库或复杂机器学习模型。
 
@@ -51,7 +51,7 @@ python -m streamlit run app.py
 
 ## 大模型 API 配置
 
-项目沿用已经人工验收的 OpenAI Python SDK Responses API 与 DeepSeek 配置，本阶段不切换接口或模型。示例模型为 `deepseek-flash`，实际可用性以服务商账户和接口为准。
+项目沿用已验收的 OpenAI Python SDK Responses API 与 DeepSeek 配置。页面支持 DeepSeek Flash 和 V4 Pro，默认取 `LLM_MODEL`；实际可用性及费用以服务商账户为准。
 
 程序会自动读取项目根目录的 `.env`。该文件已被 `.gitignore` 排除，真实密钥不要写入源码、README 或提交到仓库。
 
@@ -66,6 +66,8 @@ python -m streamlit run app.py
 `.env.example` 是不含密钥的配置模板。页面不会显示密钥，也不会在缺少配置或 API 失败时冒充真实 Agent。系统环境变量仍可使用，并且优先于 `.env` 中的同名配置。
 
 单次任务最多执行三个工具和两次模型请求。程序只把任务、字段元信息以及 Python 工具结果发给模型，不会默认发送完整 CSV。
+
+本地 v1.0.1 提供会话级模型选择、固定阈值和 IQR 倍数设置及恢复默认值；标准语义别名集中管理。字段与单位不明确时只做通用统计，LCORE 仍只做 IQR。详细用法见[配置说明](docs/configuration.md)。
 
 ## 部署与安全
 

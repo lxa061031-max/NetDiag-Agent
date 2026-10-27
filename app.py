@@ -24,6 +24,8 @@ from src.data_processing.adapters import describe_dataset
 from src.data_processing.schema import CANONICAL_NAMES
 from src.data_processing.analysis import analyze_anomalies, prepare_analysis
 from src.data_processing.upload_validation import read_uploaded_csv
+from src.detection.config import detection_config
+from src.agent.configuration import SUPPORTED_MODELS
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -32,7 +34,7 @@ DEMO_DATA_PATH = PROJECT_ROOT / "data" / "demo" / "synthetic_network.csv"
 
 st.set_page_config(page_title="NetDiag-Agent", page_icon="🌐", layout="wide")
 st.title("🌐 NetDiag-Agent")
-st.caption("面向校园网络运维的自适应智能故障诊断系统｜部署验收候选版（核心功能冻结）")
+st.caption("面向校园网络运维的自适应智能故障诊断系统｜Competition Demo v1.0.1 本地版")
 
 st.info(
     "当前版本支持 CSV 数据浏览、网络指标统计、基础异常检测，"
@@ -84,6 +86,32 @@ dataframe, data_source = load_selected_data()
 schema_confirmations = {}
 dataset_fingerprint = None
 
+def reset_detection_settings():
+    defaults = detection_config()
+    for name, value in defaults["thresholds"].items():
+        st.session_state[f"threshold_{name}"] = value
+    st.session_state["iqr_multiplier"] = defaults["iqr_multiplier"]
+
+with st.expander("异常检测参数", expanded=False):
+    st.checkbox("恢复默认值", on_change=reset_detection_settings, key="reset_detection_defaults")
+    defaults = detection_config()
+    labels = {"latency_ms": "时延上限（ms）", "packet_loss_pct": "丢包率上限（%）",
+              "cpu_usage_pct": "CPU上限（%）", "temperature_c": "温度上限（°C）"}
+    for name, label in labels.items():
+        st.number_input(label, min_value=(-273.15 if name == "temperature_c" else 0.0),
+                        max_value=100.0 if name.endswith("_pct") else None,
+                        value=defaults["thresholds"][name], key=f"threshold_{name}")
+    st.number_input("IQR multiplier", min_value=0.01, value=defaults["iqr_multiplier"],
+                    step=0.1, key="iqr_multiplier")
+try:
+    active_detection_settings = detection_config({
+        "thresholds": {name: st.session_state[f"threshold_{name}"] for name in defaults["thresholds"]},
+        "iqr_multiplier": st.session_state["iqr_multiplier"],
+    })
+except ValueError as exc:
+    st.warning(f"异常参数无效，已使用默认值：{exc}")
+    active_detection_settings = detection_config()
+
 if dataframe is None:
     st.warning("请上传一个有效 CSV，或勾选使用模拟演示数据。")
 else:
@@ -110,6 +138,8 @@ else:
                 elif choice in CANONICAL_NAMES:
                     schema_confirmations[item["source_column"]] = choice
     adapter = describe_dataset(dataframe, confirmations=schema_confirmations)
+    if not adapter["semantic_columns"]:
+        st.info("未识别到本项目支持的网络监测语义字段。请使用项目支持的标准字段或兼容别名，并检查数据字段说明。Generic Analysis仍然可以使用。")
     st.dataframe(pd.DataFrame(adapter["schema_mapping"]).rename(columns={
         "source_column": "原始字段", "dtype": "类型", "canonical_name": "推测/确认语义",
         "unit": "已知单位", "confidence": "置信度", "needs_confirmation": "需要确认",
@@ -198,13 +228,13 @@ else:
             options=supported_metrics,
             default=supported_metrics,
         )
-        _, selected_thresholds = prepare_analysis(dataframe, adapter, selected_analysis_metrics or supported_metrics, analysis_mode)
+        _, selected_thresholds = prepare_analysis(dataframe, adapter, selected_analysis_metrics or supported_metrics, analysis_mode, settings=active_detection_settings)
         iqr_required = any(not rule for rule in selected_thresholds.values())
         use_iqr = st.checkbox("同时使用 IQR 统计规则", value=True, disabled=iqr_required)
         if iqr_required:
             st.caption("通用字段或未知单位只使用IQR；统计异常不等于已确认网络故障。IQR为0或有效样本不足时跳过该规则。")
         anomaly_result = (analyze_anomalies(dataframe, adapter, selected_analysis_metrics,
-                                           mode=analysis_mode, use_iqr=True if iqr_required else use_iqr)
+                                           mode=analysis_mode, use_iqr=True if iqr_required else use_iqr, settings=active_detection_settings)
                           if selected_analysis_metrics else {"anomaly_count": 0, "anomalous_row_count": 0, "anomalies": []})
 
         anomaly_metrics = st.columns(2)
@@ -248,13 +278,23 @@ else:
 st.divider()
 st.subheader("智能故障诊断 Agent")
 agent_config_status = get_agent_config_status()
+configured_model = agent_config_status.get("model") or SUPPORTED_MODELS["DeepSeek Flash"]
+model_options = list(SUPPORTED_MODELS.values())
+if configured_model not in model_options:
+    model_options.insert(0, configured_model)
+selected_model = st.selectbox("诊断模型", options=model_options, index=model_options.index(configured_model),
+                              format_func=lambda model: next((label for label, value in SUPPORTED_MODELS.items() if value == model), f"不支持的环境配置：{model}"),
+                              key="diagnosis_model")
+st.caption("Flash适合快速分析；V4 Pro适合更复杂诊断，实际可用性和费用以服务商账户为准。")
+if selected_model not in SUPPORTED_MODELS.values():
+    st.warning("环境配置的模型不受支持，请选择列表中的DeepSeek模型。")
 if agent_config_status["configured"]:
     st.info(
         "API 配置已就绪，但尚未验证。只有本次 API 调用成功后，"
         "结果才会标记为“真实 Agent 模式”。"
     )
     st.caption(
-        f"模型：{agent_config_status['model']}｜"
+        f"当前选择：{selected_model}｜"
         "API Key：已配置"
     )
 else:
@@ -277,13 +317,16 @@ agent_task = st.text_area(
 start_diagnosis = st.button(
     "开始诊断",
     type="primary",
-    disabled=not agent_config_status["configured"] or dataframe is None,
+    disabled=not agent_config_status["configured"] or dataframe is None or selected_model not in SUPPORTED_MODELS.values(),
 )
 
 dataset_signature = (
     data_source,
     dataset_fingerprint,
     tuple(sorted(schema_confirmations.items())),
+    selected_model,
+    tuple(sorted(active_detection_settings["thresholds"].items())),
+    active_detection_settings["iqr_multiplier"],
 )
 if start_diagnosis:
     if not agent_task.strip():
@@ -291,7 +334,8 @@ if start_diagnosis:
     else:
         try:
             with st.spinner("Agent 正在选择并执行分析工具……"):
-                agent_result = run_diagnosis(dataframe, agent_task, schema_confirmations=schema_confirmations)
+                agent_result = run_diagnosis(dataframe, agent_task, schema_confirmations=schema_confirmations,
+                                             model_override=selected_model, detection_settings=active_detection_settings)
             st.session_state["agent_diagnosis"] = {
                 "dataset_signature": dataset_signature,
                 "result": agent_result,
