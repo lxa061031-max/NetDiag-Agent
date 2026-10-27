@@ -8,33 +8,26 @@ from collections.abc import Mapping
 import numpy as np
 import pandas as pd
 
-CANONICAL_NAMES = (
-    "latency", "packet_loss", "cpu_usage", "temperature", "traffic_received",
-    "traffic_sent", "jitter", "error_count", "drop_count",
-)
+# 统一注册原有语义和别名，保留匹配置信度及未知单位策略。
+SEMANTIC_REGISTRY = {
+    "latency": {"exact": {"latency_ms": "ms"}, "strong": ("latency", "rtt", "response time", "icmp response time"), "weak": ("delay",)},
+    "packet_loss": {"exact": {"packet_loss_pct": "%"}, "strong": ("packet loss", "packet loss rate", "loss rate", "icmp loss", "packet loss percentage"), "weak": ("loss",)},
+    "cpu_usage": {"exact": {"cpu_usage_pct": "%"}, "strong": ("device cpu", "cpu usage", "cpu utilization"), "weak": ("cpu",)},
+    "temperature": {"exact": {"temperature_c": "C"}, "strong": ("temperature",), "weak": ("temp",)},
+    "traffic_received": {"exact": {}, "strong": ("traffic received", "bits received", "bytes received", "rx bytes", "rx bits"), "weak": ()},
+    "traffic_sent": {"exact": {}, "strong": ("traffic sent", "bits sent", "bytes sent", "tx bytes", "tx bits"), "weak": ()},
+    "jitter": {"exact": {"jitter_ms": "ms"}, "strong": ("jitter", "delay variation", "packet delay variation"), "weak": ()},
+    "error_count": {"exact": {"error_count": "count"}, "strong": ("errors", "error count", "interface errors", "rx errors"), "weak": ()},
+    "drop_count": {"exact": {"drop_count": "count"}, "strong": ("drops", "drop count", "interface discards", "rx dropped"), "weak": ()},
+    "throughput": {"exact": {}, "strong": ("throughput", "network throughput", "data throughput", "throughput bps", "throughput mbps"), "weak": ()},
+    "signal_strength": {"exact": {}, "strong": ("signal strength", "signal strength dbm", "rssi"), "weak": ()},
+    "snr": {"exact": {}, "strong": ("snr", "signal to noise ratio", "snr db"), "weak": ()},
+}
+CANONICAL_NAMES = tuple(SEMANTIC_REGISTRY)
 SAFE_CONFIDENCE = 0.9
-# 单位仅来自明确列名，不根据数值范围推断。LCORE 单位仍待官方确认。
-EXACT_ALIASES = {
-    "latency_ms": ("latency", "ms"),
-    "packet_loss_pct": ("packet_loss", "%"),
-    "cpu_usage_pct": ("cpu_usage", "%"),
-    "temperature_c": ("temperature", "C"),
-    "jitter_ms": ("jitter", "ms"),
-    "error_count": ("error_count", "count"),
-    "drop_count": ("drop_count", "count"),
-}
-STRONG_ALIASES = {
-    "latency": "latency", "packet loss": "packet_loss",
-    "rtt": "latency", "response time": "latency", "icmp response time": "latency",
-    "loss rate": "packet_loss", "icmp loss": "packet_loss",
-    "device cpu": "cpu_usage", "cpu usage": "cpu_usage",
-    "temperature": "temperature", "jitter": "jitter",
-    "traffic received": "traffic_received", "traffic sent": "traffic_sent",
-    "bits received": "traffic_received", "bits sent": "traffic_sent",
-    "errors": "error_count", "drops": "drop_count",
-    "error count": "error_count", "drop count": "drop_count",
-}
-WEAK_ALIASES = {"delay": "latency", "loss": "packet_loss", "cpu": "cpu_usage", "temp": "temperature"}
+EXACT_ALIASES = {alias: (name, unit) for name, entry in SEMANTIC_REGISTRY.items() for alias, unit in entry["exact"].items()}
+STRONG_ALIASES = {alias: name for name, entry in SEMANTIC_REGISTRY.items() for alias in entry["strong"]}
+WEAK_ALIASES = {alias: name for name, entry in SEMANTIC_REGISTRY.items() for alias in entry["weak"]}
 
 
 def _normalize(name: str) -> str:
