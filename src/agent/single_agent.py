@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 from types import SimpleNamespace
@@ -20,7 +20,7 @@ from src.data_processing.schema import schema_uncertainties
 from .tools import DatasetToolbox, TOOL_DEFINITIONS
 from .evidence import build_evidence, summarize_tool
 from .requirements import completion_status, task_requirements
-from .configuration import read_llm_settings
+from .configuration import read_llm_settings, validate_model_override
 
 
 # 允许初学者直接在项目根目录维护 .env；已有系统环境变量优先级更高。
@@ -189,6 +189,8 @@ def run_diagnosis(
     client: Any | None = None,
     execution_trace: dict[str, object] | None = None,
     schema_confirmations: dict[str, str | None] | None = None,
+    model_override: str | None = None,
+    detection_settings: dict | None = None,
 ) -> dict[str, object]:
     """完成一次至多三工具、两次模型请求的诊断流程。"""
 
@@ -200,8 +202,17 @@ def run_diagnosis(
         raise AgentExecutionError(f"诊断任务不能超过 {MAX_TASK_CHARS} 个字符。")
 
     active_config = config or AgentConfig.from_environment()
+    if model_override is not None or client is None or config is None:
+        try:
+            selected_model = validate_model_override(model_override if model_override is not None else active_config.model)
+            active_config = replace(active_config, model=selected_model)
+        except ValueError as exc:
+            raise AgentConfigurationError(str(exc)) from exc
     active_client = client or _create_client(active_config)
-    toolbox = DatasetToolbox(dataframe, confirmations=schema_confirmations)
+    try:
+        toolbox = DatasetToolbox(dataframe, confirmations=schema_confirmations, settings=detection_settings)
+    except ValueError as exc:
+        raise AgentConfigurationError(f"异常检测配置无效：{exc}") from exc
     mapping_notes = schema_uncertainties(toolbox.adapter)
     lcore = toolbox.adapter["source_type"] == "lcore_r1"
     instructions = SYSTEM_INSTRUCTIONS
@@ -214,6 +225,7 @@ def run_diagnosis(
             "content": (
                 f"用户任务：{task.strip()}\n"
                 f"当前数据集元信息：{_build_dataset_context(dataframe, toolbox.adapter)}\n"
+                f"用户当前检测配置（只由Python执行，不能自行更改）：{json.dumps(toolbox.settings, ensure_ascii=False)}\n"
                 f"明确任务要求：{json.dumps(requirements, ensure_ascii=False)}"
             ),
         }
