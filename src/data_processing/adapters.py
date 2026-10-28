@@ -7,7 +7,7 @@ import json
 import pandas as pd
 
 from src.detection.config import DEFAULT_THRESHOLD_RULES
-from .schema import build_schema_mapping
+from .schema import build_schema_mapping, is_non_metric
 
 
 LCORE_METRICS = {
@@ -40,7 +40,9 @@ def describe_dataset(dataframe: pd.DataFrame, source_type: str | None = None, *,
         if column in (label, timestamp):
             continue
         name = str(column)
-        if source_type == "lcore_r1" and any(token in name.casefold() for token in ("status", "type", "availability", "path_up")):
+        if is_non_metric(name):
+            unsupported.append(name)
+        elif source_type == "lcore_r1" and any(token in name.casefold() for token in ("status", "type", "availability", "path_up")):
             categorical.append(name)
         elif (pd.api.types.is_numeric_dtype(dataframe[column])
               and not pd.api.types.is_bool_dtype(dataframe[column])

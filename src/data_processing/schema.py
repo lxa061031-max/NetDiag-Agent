@@ -29,9 +29,63 @@ EXACT_ALIASES = {alias: (name, unit) for name, entry in SEMANTIC_REGISTRY.items(
 STRONG_ALIASES = {alias: name for name, entry in SEMANTIC_REGISTRY.items() for alias in entry["strong"]}
 WEAK_ALIASES = {alias: name for name, entry in SEMANTIC_REGISTRY.items() for alias in entry["weak"]}
 
+NON_METRIC_NAMES = frozenset({
+    "run id", "host label", "sample index", "timestamp utc", "timestamp local",
+    "epoch s", "elapsed s", "link type", "gateway ip", "dns server", "target",
+    "collector version", "collector os", "date local", "hour local", "weekday local",
+    "is weekend", "event category", "event description", "notes",
+})
+UNIT_SUFFIXES = {"ms": "ms", "pct": "%", "percent": "%", "dbm": "dBm",
+                 "mbps": "Mbps", "kbps": "Kbps", "gbps": "Gbps", "bytes": "bytes", "bits": "bits"}
+CONTEXT_TOKENS = frozenset({"gateway", "speedtest", "icmp", "wifi", "lan", "interface", "network",
+                            "device", "avg", "mean", "median", "min", "max", "p50", "p95", "p99",
+                            "std", "stddev", "loaded", "in", "out", "count", "download", "upload"})
+
 
 def _normalize(name: str) -> str:
     return " ".join(re.sub(r"[_\W]+", " ", name.casefold()).split())
+
+
+def is_non_metric(name: str) -> bool:
+    normalized = _normalize(name)
+    return normalized.startswith("label ") or normalized in NON_METRIC_NAMES
+
+
+def _structured_mapping(normalized: str):
+    """组合明确语义、上下文和后缀；不匹配未经允许的附加词。"""
+    tokens = normalized.split()
+    token_set = set(tokens)
+    unit = UNIT_SUFFIXES.get(tokens[-1]) if tokens else None
+    candidates = []
+    if token_set & {"errors", "error"} and ("errors" in token_set or "count" in token_set):
+        candidates.append(("error_count", {"error", "errors", "rx", "tx"}))
+    if token_set & {"drops", "drop", "discards"}:
+        candidates.append(("drop_count", {"drops", "drop", "discards", "rx", "tx"}))
+    if token_set & {"rtt", "latency", "ping"}:
+        candidates.append(("latency", {"rtt", "latency", "ping"}))
+    if "loss" in token_set and ("packet" in token_set or token_set & {"pct", "percent"}):
+        candidates.append(("packet_loss", {"packet", "loss"}))
+    if "jitter" in token_set:
+        candidates.append(("jitter", {"jitter"}))
+    if "rssi" in token_set or {"signal", "strength"} <= token_set or ("signal" in token_set and bool(token_set & {"pct", "percent"})):
+        candidates.append(("signal_strength", {"rssi", "signal", "strength"}))
+    direction_units = {"bytes", "bits", "kbps", "mbps", "gbps"}
+    if token_set & direction_units:
+        if token_set & {"rx", "received", "receive"}:
+            candidates.append(("traffic_received", {"rx", "received", "receive"}))
+        if token_set & {"tx", "sent", "send", "transmitted"}:
+            candidates.append(("traffic_sent", {"tx", "sent", "send", "transmitted"}))
+    if not token_set & {"rx", "received", "receive", "tx", "sent", "send", "transmitted"} and token_set & {"throughput", "download", "upload", "bandwidth"}:
+        candidates.append(("throughput", {"throughput", "download", "upload", "bandwidth"}))
+    allowed_units = set(UNIT_SUFFIXES)
+    matches = [(semantic, core) for semantic, core in candidates
+               if token_set <= core | CONTEXT_TOKENS | allowed_units]
+    if len(matches) != 1:
+        return None, None, 0.0
+    semantic, core = matches[0]
+    # 含明确单位或明确错误/丢弃方向的组合才是高置信度。
+    strong = unit is not None or (semantic in {"error_count", "drop_count"} and bool(token_set & {"rx", "tx", "in", "out", "count"}))
+    return semantic, unit, 0.9 if strong else 0.6
 
 
 def build_schema_mapping(dataframe: pd.DataFrame, *, confirmations=None,
@@ -44,7 +98,7 @@ def build_schema_mapping(dataframe: pd.DataFrame, *, confirmations=None,
     confirmations = {} if confirmations is None else confirmations
     if not isinstance(confirmations, Mapping):
         raise ValueError("人工确认必须是字段到标准语义的映射。")
-    eligible = {c for c in dataframe if c not in excluded_columns
+    eligible = {c for c in dataframe if c not in excluded_columns and not is_non_metric(c)
                 and pd.api.types.is_numeric_dtype(dataframe[c])
                 and not pd.api.types.is_bool_dtype(dataframe[c])
                 and not pd.api.types.is_complex_dtype(dataframe[c])}
@@ -62,12 +116,15 @@ def build_schema_mapping(dataframe: pd.DataFrame, *, confirmations=None,
             elif normalized in STRONG_ALIASES:
                 canonical = STRONG_ALIASES[normalized]
                 confidence, origin = 0.9, "strong_alias"
-            elif normalized in WEAK_ALIASES:
-                canonical = WEAK_ALIASES[normalized]
-                confidence, origin = 0.6, "weak_alias"
             elif re.fullmatch(r"(?:u|b1|p1) bits (received|sent)", normalized):
                 canonical = "traffic_received" if normalized.endswith("received") else "traffic_sent"
                 confidence, origin = 0.9, "strong_alias"
+            else:
+                canonical, unit, confidence = _structured_mapping(normalized)
+                if canonical:
+                    origin = "structured_pattern"
+                elif normalized in WEAK_ALIASES:
+                    canonical, confidence, origin = WEAK_ALIASES[normalized], 0.6, "weak_alias"
         finite = pd.to_numeric(dataframe[name], errors="coerce") if name in eligible else pd.Series(dtype=float)
         finite = finite.replace([np.inf, -np.inf], np.nan).dropna()
         warnings = []
