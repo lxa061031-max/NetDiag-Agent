@@ -34,7 +34,7 @@ DEMO_DATA_PATH = PROJECT_ROOT / "data" / "demo" / "synthetic_network.csv"
 
 st.set_page_config(page_title="NetDiag-Agent", page_icon="🌐", layout="wide")
 st.title("🌐 NetDiag-Agent")
-st.caption("面向校园网络运维的自适应智能故障诊断系统｜Competition Demo v1.0.1 本地版")
+st.caption("面向校园网络运维的自适应智能故障诊断系统｜Competition Demo v1.0.2")
 
 st.info(
     "当前版本支持 CSV 数据浏览、网络指标统计、基础异常检测，"
