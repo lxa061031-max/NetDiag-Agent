@@ -71,7 +71,7 @@ python -m streamlit run app.py
 
 ## 部署与安全
 
-优先平台为 Streamlit Community Cloud，入口为 `app.py`。部署时在 **Advanced settings** 选择 Python **3.11**，并由本人在平台 **Secrets** 中填写 `.streamlit/secrets.toml.example` 的三个配置项，不要上传真实 `.env` 或 `secrets.toml`。配置读取优先级为系统环境变量、项目 `.env`、Streamlit Secrets。未配置API时，CSV分析仍可使用。
+优先平台为 Streamlit Community Cloud，入口为 `app.py`。部署时在 **Advanced settings** 选择 Python **3.11**，并在平台 **Secrets** 中填写`.streamlit/secrets.toml.example` 的三个配置项，不要上传真实 `.env` 或 `secrets.toml`。配置读取优先级为系统环境变量、项目 `.env`、Streamlit Secrets。未配置API时，CSV分析仍可使用。
 
 Streamlit固定为本地已验证的1.66.1、OpenAI SDK固定为2.54.0，其余依赖保留原有范围，不要求安装PyTorch。可用 `python -m pip install -r requirements.txt` 和 `python -m pytest -q` 验证。
 
