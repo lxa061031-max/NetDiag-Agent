@@ -8,6 +8,7 @@ from .csv_loader import (
     read_csv,
     validate_required_columns,
 )
+from .semantic_labels import build_semantic_label_map, build_semantic_value_frame
 
 __all__ = [
     "EmptyCSVError",
@@ -16,4 +17,6 @@ __all__ = [
     "get_numeric_columns",
     "read_csv",
     "validate_required_columns",
+    "build_semantic_label_map",
+    "build_semantic_value_frame",
 ]

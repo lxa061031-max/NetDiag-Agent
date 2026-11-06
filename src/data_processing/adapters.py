@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.detection.config import DEFAULT_THRESHOLD_RULES
 from .schema import build_schema_mapping, is_non_metric
+from .semantic_labels import build_semantic_label_map
 
 
 LCORE_METRICS = {
@@ -56,6 +57,7 @@ def describe_dataset(dataframe: pd.DataFrame, source_type: str | None = None, *,
     selected = [name for name in mapping if name in numeric]
     schema = build_schema_mapping(dataframe, confirmations=confirmations,
                                   excluded_columns=[label, timestamp, *categorical, *unsupported])
+    semantic_label_map = build_semantic_label_map(schema)
     if source_type != "lcore_r1":
         selected = numeric[:8]
     metadata = {
@@ -77,6 +79,7 @@ def describe_dataset(dataframe: pd.DataFrame, source_type: str | None = None, *,
         "analysis_columns": selected, "unsupported_columns": unsupported,
         "metadata": metadata,
         "schema_mapping": schema,
+        "semantic_label_map": semantic_label_map,
         "semantic_columns": [item["source_column"] for item in schema if item["semantic_enabled"]],
         "generic_numeric_columns": numeric,
     }
