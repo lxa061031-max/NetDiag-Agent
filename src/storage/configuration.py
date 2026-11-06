@@ -1,8 +1,9 @@
-"""MSSQL与设备绑定配置，兼容环境变量和Streamlit Secrets。"""
+"""数据库与设备绑定配置，兼容环境变量和Streamlit Secrets。"""
 
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -13,6 +14,8 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 
 DATABASE_CONFIG_NAMES = (
+    "DATABASE_BACKEND",
+    "SQLITE_PATH",
     "MSSQL_SERVER",
     "MSSQL_DATABASE",
     "MSSQL_USERNAME",
@@ -51,6 +54,10 @@ def read_database_settings() -> dict[str, str]:
     values["MSSQL_TRUSTED_CONNECTION"] = values["MSSQL_TRUSTED_CONNECTION"] or "false"
     values["MSSQL_ENCRYPT"] = values["MSSQL_ENCRYPT"] or "yes"
     values["MSSQL_TRUST_SERVER_CERTIFICATE"] = values["MSSQL_TRUST_SERVER_CERTIFICATE"] or "no"
+    values["DATABASE_BACKEND"] = (values["DATABASE_BACKEND"] or "mssql").casefold()
+    values["SQLITE_PATH"] = values["SQLITE_PATH"] or str(
+        Path(tempfile.gettempdir()) / "netdiag_agent" / "netdiag_demo.db"
+    )
     return values
 
 
@@ -117,8 +124,51 @@ class MSSQLConfig:
         return ";".join(parts) + ";"
 
 
+@dataclass(frozen=True)
+class SQLiteConfig:
+    path: Path
+    device_secret: str = field(default="", repr=False)
+
+    @classmethod
+    def from_settings(cls) -> "SQLiteConfig":
+        settings = read_database_settings()
+        config = cls(
+            path=Path(settings["SQLITE_PATH"]).expanduser(),
+            device_secret=settings["AUTH_DEVICE_SECRET"],
+        )
+        config.validate()
+        return config
+
+    def validate(self) -> None:
+        if not self.device_secret or len(self.device_secret) < 24:
+            raise ValueError("AUTH_DEVICE_SECRET至少需要24个字符。")
+        if not self.path.name:
+            raise ValueError("SQLITE_PATH必须指向数据库文件。")
+
+
 def get_database_config_status() -> dict[str, object]:
     settings = read_database_settings()
+    backend = settings["DATABASE_BACKEND"]
+    if backend not in {"mssql", "sqlite"}:
+        return {
+            "configured": False,
+            "backend": backend,
+            "label": backend,
+            "error": "DATABASE_BACKEND仅支持mssql或sqlite。",
+            "variables": {},
+        }
+    if backend == "sqlite":
+        configured = len(settings["AUTH_DEVICE_SECRET"]) >= 24
+        return {
+            "configured": configured,
+            "backend": backend,
+            "label": "SQLite临时演示库",
+            "temporary": True,
+            "variables": {
+                "SQLITE_PATH": bool(settings["SQLITE_PATH"]),
+                "AUTH_DEVICE_SECRET": configured,
+            },
+        }
     trusted = _enabled(settings["MSSQL_TRUSTED_CONNECTION"])
     required = ["MSSQL_SERVER", "MSSQL_DATABASE", "AUTH_DEVICE_SECRET"]
     if not trusted:
@@ -126,6 +176,9 @@ def get_database_config_status() -> dict[str, object]:
     configured = all(settings[name] for name in required) and len(settings["AUTH_DEVICE_SECRET"]) >= 24
     return {
         "configured": configured,
+        "backend": backend,
+        "label": "MSSQL",
+        "temporary": False,
         "trusted_connection": trusted,
         "variables": {name: bool(settings[name]) for name in required},
         "driver": settings["MSSQL_DRIVER"],
