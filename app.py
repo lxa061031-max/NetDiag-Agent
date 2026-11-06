@@ -38,6 +38,8 @@ from src.storage import (
     DatabaseUnavailableError,
     MSSQLConfig,
     MSSQLRepository,
+    SQLiteConfig,
+    SQLiteRepository,
     get_database_config_status,
 )
 
@@ -50,13 +52,17 @@ st.set_page_config(page_title="NetDiag-Agent", page_icon="🌐", layout="wide")
 
 
 @st.cache_resource
-def get_database_repository() -> MSSQLRepository:
-    repository = MSSQLRepository(MSSQLConfig.from_settings())
+def get_database_repository(backend: str):
+    repository = (
+        SQLiteRepository(SQLiteConfig.from_settings())
+        if backend == "sqlite"
+        else MSSQLRepository(MSSQLConfig.from_settings())
+    )
     repository.ensure_schema()
     return repository
 
 
-def get_current_device_hash(config: MSSQLConfig) -> str:
+def get_current_device_hash(config) -> str:
     return build_device_hash(
         secret=config.device_secret,
         ip_address=st.context.ip_address,
@@ -67,7 +73,7 @@ def get_current_device_hash(config: MSSQLConfig) -> str:
 
 
 def render_authentication_gate(
-    repository: MSSQLRepository,
+    repository,
     device_hash: str,
 ) -> None:
     service = AuthenticationService(repository)
@@ -136,7 +142,7 @@ def render_authentication_gate(
 
 def save_diagnosis_log(
     *,
-    repository: MSSQLRepository,
+    repository,
     user: AuthenticatedUser,
     status: str,
     task: str,
@@ -170,8 +176,12 @@ database_repository = None
 current_user = None
 if database_status["configured"]:
     try:
-        database_config = MSSQLConfig.from_settings()
-        database_repository = get_database_repository()
+        database_config = (
+            SQLiteConfig.from_settings()
+            if database_status["backend"] == "sqlite"
+            else MSSQLConfig.from_settings()
+        )
+        database_repository = get_database_repository(str(database_status["backend"]))
         active_device_hash = get_current_device_hash(database_config)
     except (ValueError, DatabaseUnavailableError) as exc:
         st.error(str(exc))
@@ -184,13 +194,16 @@ if database_status["configured"]:
     current_user = AuthenticatedUser(**authenticated)
     with st.sidebar:
         st.success(f"已登录：{current_user.username}")
+        if database_status.get("temporary"):
+            st.warning("当前为SQLite临时演示模式；云端重启或重新部署后，账号和日志可能重置。")
         if st.button("退出登录", icon=":material/logout:"):
             for state_key in ("authenticated_user", "agent_diagnosis", "diagnosis_logs"):
                 st.session_state.pop(state_key, None)
             st.rerun()
 else:
     with st.sidebar:
-        st.warning("MSSQL尚未配置，账户登录与诊断日志暂未启用；本地数据分析仍可使用。")
+        message = database_status.get("error") or "数据库尚未配置，账户登录与诊断日志暂未启用；本地数据分析仍可使用。"
+        st.warning(str(message))
 
 st.title("🌐 NetDiag-Agent")
 st.caption("面向校园网络运维的自适应智能故障诊断系统｜Competition Demo v1.0.2")
@@ -568,7 +581,7 @@ if start_diagnosis:
                         error_message=str(exc),
                     )
                 except DatabaseUnavailableError:
-                    st.warning("诊断失败，且MSSQL日志暂时无法写入。")
+                    st.warning("诊断失败，且数据库日志暂时无法写入。")
             st.error(str(exc))
         except Exception:
             st.session_state.pop("agent_diagnosis", None)
@@ -586,7 +599,7 @@ if start_diagnosis:
                         error_message="诊断服务暂时不可用。",
                     )
                 except DatabaseUnavailableError:
-                    st.warning("诊断失败，且MSSQL日志暂时无法写入。")
+                    st.warning("诊断失败，且数据库日志暂时无法写入。")
             st.error("诊断服务暂时不可用，请稍后重试；本次不会自动重试。")
 
 saved_diagnosis = st.session_state.get("agent_diagnosis")
@@ -600,9 +613,9 @@ if (
         f"执行工具 {result['tool_calls_executed']} 次。"
     )
     if result.get("database_log_id"):
-        st.caption(f"本次诊断已写入MSSQL，日志编号：{result['database_log_id']}。")
+        st.caption(f"本次诊断已写入{database_status['label']}，日志编号：{result['database_log_id']}。")
     elif result.get("database_log_error"):
-        st.warning("诊断已生成，但日志未写入MSSQL：" + str(result["database_log_error"]))
+        st.warning("诊断已生成，但日志未写入数据库：" + str(result["database_log_error"]))
     st.markdown("#### 实际工具调用记录")
     for index, record in enumerate(result["tool_records"], start=1):
         with st.expander(
