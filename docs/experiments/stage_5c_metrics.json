@@ -1,0 +1,59 @@
+{
+  "task_count": 4,
+  "completed_tasks": 4,
+  "required_tool_success_tasks": 4,
+  "unnecessary_tool_tasks": 0,
+  "task_completion_rate": 1.0,
+  "required_tool_success_rate": 1.0,
+  "unnecessary_tool_call_rate": 0.0,
+  "checklist": {
+    "A": [
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "N/A",
+      "Pass",
+      "Pass",
+      "Pass"
+    ],
+    "B": [
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "N/A",
+      "Pass",
+      "Pass",
+      "Pass"
+    ],
+    "C": [
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass"
+    ],
+    "D": [
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "Pass",
+      "N/A",
+      "Pass",
+      "Pass",
+      "Pass"
+    ]
+  }
+}

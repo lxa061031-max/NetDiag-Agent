@@ -1,0 +1,274 @@
+{
+  "dataset_name": "LCORE-D V2 R1",
+  "sha256": "e2382475949174506bff1bdb28b80b67f5208896fdaa0b43e9e64000d06f3b33",
+  "rows": 24240,
+  "columns": 42,
+  "native_numeric_count": 39,
+  "label_counts": {
+    "H": 23811,
+    "F": 429
+  },
+  "adapter": {
+    "source_type": "lcore_r1",
+    "dataset_name": "LCORE-D V2 R1-compatible schema",
+    "row_count": 24240,
+    "numeric_columns": [
+      "ICMP loss",
+      "ICMP response time",
+      "U_ Bits_ received",
+      "U_ Bits_ sent",
+      "U_Inbound_ packets_ discarded",
+      "U_ Inbound_ packets_ with _errors",
+      "U_Outbound_ packets_ with_ errors",
+      "U_Outbound_ packets_ discarded",
+      "U_ Speed",
+      "B1_Bits_ received",
+      "B1_Bits_ sent",
+      "B1_ Inbound_ packets_ discarded",
+      "B1_Inbound_ packets_ with_ errors",
+      "B1_Outbound_ packets_ with_ errors",
+      "B1_ Outbound_ packets_ discarded",
+      "B1_Speed",
+      "P1_ Bits_ received",
+      "P1_Bits _sent",
+      "P1_ Inbound_ packets_ discarded",
+      "P1_Inbound _packets_ with_ errors",
+      "P1_ Outbound_ packets_ discarded",
+      "P1_ Outbound _packets_ with_ errors",
+      "P1_Speed",
+      "Uptime (network)",
+      "Hop_to_server",
+      "Hop_to_core",
+      "downstream_dependents"
+    ],
+    "categorical_columns": [
+      "U_ Duplex_ status",
+      "U_Interface_ type",
+      "U_ Operational_ status",
+      "B1_ Duplex _status",
+      "B1_ Interface_ type",
+      "B1_Operational_ status",
+      "P1_ Duplex_ status",
+      "P1_ Interface_ type",
+      "P1_Operational _status",
+      "SNMP agent availability",
+      "Device_name",
+      "path_up"
+    ],
+    "timestamp_column": "timestamp",
+    "label_column": "class",
+    "metric_mapping": {
+      "ICMP loss": "icmp_loss",
+      "ICMP response time": "icmp_response_time",
+      "U_ Bits_ received": "interface_u_receive",
+      "U_ Bits_ sent": "interface_u_send",
+      "B1_Bits_ received": "interface_b1_receive",
+      "B1_Bits_ sent": "interface_b1_send",
+      "P1_ Bits_ received": "interface_p1_receive",
+      "P1_Bits _sent": "interface_p1_send"
+    },
+    "analysis_columns": [
+      "ICMP loss",
+      "ICMP response time",
+      "U_ Bits_ received",
+      "U_ Bits_ sent",
+      "B1_Bits_ received",
+      "B1_Bits_ sent",
+      "P1_ Bits_ received",
+      "P1_Bits _sent"
+    ],
+    "unsupported_columns": [
+      "ICMP ping"
+    ],
+    "metadata": {
+      "label_semantics_verified": false,
+      "label_meanings": {},
+      "label_semantics_note": "标签语义尚未由官方说明确认",
+      "source_url": "https://data.mendeley.com/datasets/77sztrg5ks/2",
+      "source_description": "GNS3仿真ISP网络公开监控数据，不是校园生产网数据",
+      "units_and_timestamp_timezone": "未由官方字段字典确认；不换算单位",
+      "negative_values": "保留负数原值；-1编码含义未确认，可能影响统计和IQR",
+      "selection_basis": "优先ICMP丢包/响应及三个接口收发量；不使用标签、时间、状态编码或拓扑字段作为检测特征。"
+    }
+  },
+  "statistics": {
+    "ICMP loss": {
+      "count": 24240,
+      "mean": 9.425866336630362,
+      "min": -1.0,
+      "max": 100.0,
+      "std": 28.554164259667687,
+      "median": 0.0,
+      "p95": 100.0
+    },
+    "ICMP response time": {
+      "count": 24240,
+      "mean": 0.035113114684405936,
+      "min": -1.0,
+      "max": 0.996,
+      "std": 0.07755151385953173,
+      "median": 0.0268,
+      "p95": 0.0496
+    },
+    "U_ Bits_ received": {
+      "count": 24240,
+      "mean": 2846755.1574257426,
+      "min": -1.0,
+      "max": 6251176.0,
+      "std": 1269119.7503131158,
+      "median": 3091610.5,
+      "p95": 4491998.1
+    },
+    "U_ Bits_ sent": {
+      "count": 24240,
+      "mean": 45213.807590759076,
+      "min": -1.0,
+      "max": 296656.0,
+      "std": 18249.367528192146,
+      "median": 43709.0,
+      "p95": 59488.79999999999
+    },
+    "B1_Bits_ received": {
+      "count": 24240,
+      "mean": 50869.03469471947,
+      "min": -1.0,
+      "max": 393584.0,
+      "std": 22046.56544836905,
+      "median": 45320.0,
+      "p95": 78152.15
+    },
+    "B1_Bits_ sent": {
+      "count": 24240,
+      "mean": 903725.3278052806,
+      "min": -1.0,
+      "max": 1283704.0,
+      "std": 274931.566405283,
+      "median": 1019889.5,
+      "p95": 1129624.4
+    },
+    "P1_ Bits_ received": {
+      "count": 24240,
+      "mean": 9339.739727722772,
+      "min": -1.0,
+      "max": 193752.0,
+      "std": 12687.741228593979,
+      "median": 4345.0,
+      "p95": 42288.0
+    },
+    "P1_Bits _sent": {
+      "count": 24240,
+      "mean": 177698.8056930693,
+      "min": -1.0,
+      "max": 3727864.0,
+      "std": 531374.2291630334,
+      "median": 5803.0,
+      "p95": 1819867.7999999984
+    }
+  },
+  "detection": {
+    "anomaly_count": 21473,
+    "anomalous_row_count": 9466,
+    "analyzed_metrics": [
+      "ICMP loss",
+      "ICMP response time",
+      "U_ Bits_ received",
+      "U_ Bits_ sent",
+      "B1_Bits_ received",
+      "B1_Bits_ sent",
+      "P1_ Bits_ received",
+      "P1_Bits _sent"
+    ]
+  },
+  "anomalous_row_ratio": 0.3905115511551155,
+  "per_metric_anomaly_records": {
+    "U_ Bits_ sent": 3693,
+    "B1_Bits_ received": 3929,
+    "B1_Bits_ sent": 4465,
+    "ICMP response time": 3307,
+    "P1_Bits _sent": 3435,
+    "P1_ Bits_ received": 2644,
+    "ICMP loss": 0,
+    "U_ Bits_ received": 0
+  },
+  "zero_iqr_columns": [
+    "ICMP loss"
+  ],
+  "anomaly_examples": [
+    {
+      "row_index": 0,
+      "timestamp": 1760264160,
+      "metric": "U_ Bits_ sent",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 33022.88，差值 33023.88"
+    },
+    {
+      "row_index": 0,
+      "timestamp": 1760264160,
+      "metric": "B1_Bits_ received",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 27667.50，差值 27668.50"
+    },
+    {
+      "row_index": 0,
+      "timestamp": 1760264160,
+      "metric": "B1_Bits_ sent",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 678125.00，差值 678126.00"
+    },
+    {
+      "row_index": 1,
+      "timestamp": 1760264220,
+      "metric": "ICMP response time",
+      "value": 0.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 0.00，差值 0.00"
+    },
+    {
+      "row_index": 1,
+      "timestamp": 1760264220,
+      "metric": "U_ Bits_ sent",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 33022.88，差值 33023.88"
+    },
+    {
+      "row_index": 1,
+      "timestamp": 1760264220,
+      "metric": "B1_Bits_ received",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 27667.50，差值 27668.50"
+    },
+    {
+      "row_index": 1,
+      "timestamp": 1760264220,
+      "metric": "B1_Bits_ sent",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 678125.00，差值 678126.00"
+    },
+    {
+      "row_index": 2,
+      "timestamp": 1760264280,
+      "metric": "U_ Bits_ sent",
+      "value": -1.0,
+      "trigger_rule": "IQR 下界",
+      "explanation": "低于 IQR 下界 33022.88，差值 33023.88"
+    }
+  ],
+  "negative_value_counts": {
+    "ICMP loss": 17,
+    "ICMP response time": 17,
+    "U_ Bits_ received": 16,
+    "U_ Bits_ sent": 16,
+    "B1_Bits_ received": 16,
+    "B1_Bits_ sent": 16,
+    "P1_ Bits_ received": 16,
+    "P1_Bits _sent": 16
+  },
+  "icmp_ping_non_numeric": 1,
+  "label_evaluation": "未计算：标签语义尚未由官方说明确认。"
+}
